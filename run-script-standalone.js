@@ -8,6 +8,19 @@ import yargs from 'yargs'
 import fs from 'fs';
 import _ from 'lodash';
 
+/*import * as pg from 'pg'
+const { Client } = pg.default
+
+const client = new Client ({
+    host:"testdb.chzn6cnaazyl.eu-west-2.rds.amazonaws.com",
+    user:"postgres",
+    post: 5432,
+    password:"Toothemoon69",
+    database:"Test_db"
+    })
+  
+client.connect();*/
+
 let configPath = yargs(process.argv).argv.config;
 let overrides = yargs(process.argv).argv;
 let outputType = overrides.outputType || 'console';;
@@ -16,3 +29,4 @@ let config = JSON.parse(fs.readFileSync(configPath).toString());
 config = _.assignIn(config, overrides);
 let tracker = new SalesTracker(config, outputType);
 tracker.checkSales();
+

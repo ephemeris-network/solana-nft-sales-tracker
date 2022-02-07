@@ -22,11 +22,21 @@
     "buffer-layout": "^1.2.2",
     "lodash": "^4.17.21",
     "node-cron": "^3.0.0",
+    "pg": "^8.7.1",
     "twitter": "^1.7.1",
     "typescript": "^4.4.3",
     "yargs": "^17.2.1"
   },
   "devDependencies": {
     "@types/yargs": "^17.0.3"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ephemeris-network/solana-nft-sales-tracker.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/ephemeris-network/solana-nft-sales-tracker/issues"
+  },
+  "homepage": "https://github.com/ephemeris-network/solana-nft-sales-tracker#readme"
 }

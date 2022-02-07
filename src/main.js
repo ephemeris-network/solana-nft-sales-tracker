@@ -30,7 +30,7 @@ export default class SaleTracker {
             let lockFile = me._readOrCreateAuditFile();
             let lastProcessedSignature = _.last(lockFile.processedSignatures);
             console.log("Started");
-            const confirmedSignatures = _.reverse(yield this.connection.getConfirmedSignaturesForAddress2(new PublicKey(me.config.primaryRoyaltiesAccount), { limit: 25, until: lastProcessedSignature }));
+            const confirmedSignatures = _.reverse(yield this.connection.getConfirmedSignaturesForAddress2(new PublicKey(me.config.primaryRoyaltiesAccount), { limit: 1000, until: lastProcessedSignature }));
             _.remove(confirmedSignatures, (tx) => {
                 return _.includes(lockFile.processedSignatures, tx.signature);
             });
@@ -40,6 +40,8 @@ export default class SaleTracker {
                 if (saleInfo) {
                     yield me._getOutputPlugin().send(saleInfo);
                 }
+
+              
                 yield me._updateLockFile(confirmedSignature.signature);
                 console.log("Updated lockfile", confirmedSignature.signature);
             }
@@ -125,18 +127,18 @@ export default class SaleTracker {
      * The marketplaces have their own royalty addresses which are credited as part of the sale.
      * @param addresses
      * @returns
-     */
-    _mapMarketPlace(addresses) {
-        const me = this;
-        let marketPlace = '';
-        _.forEach(me.config.marketPlaceInfos, (mpInfo) => {
-            if (_.size(_.intersection(addresses, mpInfo.addresses)) > 0) {
-                marketPlace = mpInfo.name;
-                return false;
-            }
-        });
-        return marketPlace;
-    }
+     */ /*
+   _mapMarketPlace(addresses) {
+       const me = this;
+       let marketPlace = '';
+       _.forEach(me.config.marketPlaceInfos, (mpInfo) => {
+           if (_.size(_.intersection(addresses, mpInfo.addresses)) > 0) {
+               marketPlace = mpInfo.name;
+               return false;
+           }
+       });
+       return marketPlace;
+   } */
     /**
      * The amount debited from the buyer is the actual amount paid for the NFT.
      * @param accountPostBalances - Map of account addresses and the balances post this transaction
@@ -169,6 +171,8 @@ export default class SaleTracker {
         return __awaiter(this, void 0, void 0, function* () {
             const me = this;
             let transactionInfo = yield me.connection.getTransaction(signature);
+
+
             let accountKeys = transactionInfo === null || transactionInfo === void 0 ? void 0 : transactionInfo.transaction.message.accountKeys;
             let accountMap = [];
             if (accountKeys) {
@@ -179,8 +183,8 @@ export default class SaleTracker {
             }
             let allAddresses = _.values(accountMap);
             let buyer = accountMap[0];
-            let { balanceDifferences, seller, mintInfo, saleAmount, marketPlace } = me._parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses);
-            if (balanceDifferences && balanceDifferences[me.config.primaryRoyaltiesAccount] > 0 && !_.isEmpty(marketPlace)) {
+            let { balanceDifferences, seller, mintInfo, saleAmount } = me._parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses);
+            if (balanceDifferences && balanceDifferences[me.config.primaryRoyaltiesAccount] > 0 /* && !_.isEmpty(marketPlace)*/) {
                 let mintMetaData = yield me._getMintMetadata(mintInfo);
                 if (!me._verifyNFT(mintMetaData)) {
                     console.log("Not an NFT transaction that we're interested in", mintMetaData);
@@ -188,10 +192,41 @@ export default class SaleTracker {
                 }
                 let arWeaveUri = _.get(mintMetaData, `data.uri`);
                 let arWeaveInfo = yield axios.get(arWeaveUri);
+
+
+                
+                let user = {
+                   collection: _.get(mintMetaData, `data.name`),
+        
+                    time:
+                        transactionInfo === null || transactionInfo === void 0
+                            ? void 0
+                            : transactionInfo.blockTime,
+        
+                    /*marketPlace: me._mapMarketPlace(allAddresses),*/
+                    saleAmount: saleAmount,
+                    Signature: signature
+                };
+                if (user.saleAmount != 0) {
+                    // convert JSON object to string
+                    const data = JSON.stringify(user);
+                   // const Signature = JSON.stringify(SIG);
+        
+                    // write JSON string to a file
+                    fs.appendFile("sigs.json", `${data}   ,`, (err) => {
+                        if (err) {
+                            throw err;
+                        }
+                        console.log("JSON data is saved.");
+                    });
+                }
+
+
+
                 return {
                     time: transactionInfo === null || transactionInfo === void 0 ? void 0 : transactionInfo.blockTime,
                     txSignature: signature,
-                    marketPlace: marketPlace ? marketPlace : 'Unknown',
+                    /* marketPlace: marketPlace ? marketPlace : 'Unknown', */
                     buyer,
                     seller,
                     saleAmount,
@@ -214,7 +249,9 @@ export default class SaleTracker {
      * @returns
      */
     _parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses) {
+        
         const me = this;
+        
         let txMetadata = transactionInfo.meta, mintInfo = _.get(txMetadata, `postTokenBalances.0.mint`), balanceDifferences = {}, seller = '';
         let accountPreBalances = {};
         let accountPostBalances = {};
@@ -233,13 +270,16 @@ export default class SaleTracker {
                 largestBalanceIncrease = balanceIncrease;
             }
         });
+        
+
+        
         return {
             accountPreBalances,
             accountPostBalances,
             balanceDifferences,
             seller,
             mintInfo,
-            marketPlace: me._mapMarketPlace(allAddresses),
+            //marketPlace: me._mapMarketPlace(allAddresses),
             saleAmount: me._getSaleAmount(accountPostBalances, accountPreBalances, buyer)
         };
     }
