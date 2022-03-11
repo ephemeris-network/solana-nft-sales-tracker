@@ -286,10 +286,8 @@ function datadump(configs) {
                           console.log('Not of Interest')   
                         } else if (id == '49' && !meta.collection.includes(' #')) {
                           console.log('Not of Interest')   
-                        } else if (id == '50' && !meta.collection.includes('Honey Genesis Bee #')) {
-                          console.log('Not of Interest')   
                         } else {
-                        pool.query("insert into public.solana values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
+                        pool.query("insert into public.solana2 values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
                             if (!err) {
                                 console.log(res.rows);
                             } else {
@@ -369,7 +367,7 @@ function datadump2(configs) {
                     else {
                         console.log(i)
                         let id = samplefile.id;
-                        pool.query("insert into public.solana values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
+                        pool.query("insert into public.solana2 values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
                             if (!err) {
                                 console.log(res.rows);
                             } else {

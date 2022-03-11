@@ -18,36 +18,42 @@ export default class SaleTracker {
     constructor(config, outputType) {
         this.config = config;
         this.connection = new Connection(this.config.rpc);
-        this.auditFilePath = `./auditfile-${outputType}.json`;
+        // this.auditFilePath = `./auditfile-${outputType}.json`;
         this.outputType = outputType;
     }
     /**
      * The main function.
      */
-    checkSales() {
+     checkSales(conversionRate, collection) {
         return __awaiter(this, void 0, void 0, function* () {
-            const me = this;
-            let lockFile = me._readOrCreateAuditFile();
-            let lastProcessedSignature = _.last(lockFile.processedSignatures);
-            console.log("Started");
-            const confirmedSignatures = _.reverse(yield this.connection.getConfirmedSignaturesForAddress2(new PublicKey(me.config.primaryRoyaltiesAccount), { limit: 1000, until: lastProcessedSignature }));
-            _.remove(confirmedSignatures, (tx) => {
-                return _.includes(lockFile.processedSignatures, tx.signature);
-            });
-            console.log("Got transactions", confirmedSignatures.length);
-            for (let confirmedSignature of confirmedSignatures) {
-                let saleInfo = yield me._parseTransactionForSaleInfo(confirmedSignature.signature);
-                if (saleInfo) {
-                    yield me._getOutputPlugin().send(saleInfo);
-                }
-
-              
-                yield me._updateLockFile(confirmedSignature.signature);
-                console.log("Updated lockfile", confirmedSignature.signature);
+            let siggys = [];
+          const me = this;
+          let lockFile = me._readOrCreateAuditFile(collection);
+          let lastProcessedSignature = _.last(lockFile.processedSignatures);
+          console.log("Started");
+          const confirmedSignatures = _.reverse(
+            yield this.connection.getConfirmedSignaturesForAddress2(
+              new PublicKey(me.config.primaryRoyaltiesAccount),
+              { limit: 100, until: lastProcessedSignature }
+            )
+          );
+          _.remove(confirmedSignatures, (tx) => {
+            return _.includes(lockFile.processedSignatures, tx.signature);
+          });
+          console.log("Got transactions", confirmedSignatures.length);
+          for (let confirmedSignature of confirmedSignatures) {
+            let saleInfo = yield me._parseTransactionForSaleInfo(
+              confirmedSignature.signature, conversionRate
+            );
+            if (saleInfo) {siggys.push(saleInfo);
+              yield me._getOutputPlugin().send(saleInfo);
             }
-            console.log("Done");
-        });
-    }
+            yield me._updateLockFile(confirmedSignature.signature, collection);
+            console.log("Updated lockfile", confirmedSignature.signature);
+        }
+     return siggys
+    });
+}
     /**
      * A basic factory to return the output plugin.
      * @returns
@@ -83,14 +89,14 @@ export default class SaleTracker {
      * Returns the auditfile if it exists, if not createss a new empty one.
      * @returns The contents of the auditfile.
      */
-    _readOrCreateAuditFile() {
+    _readOrCreateAuditFile(collection) {
         const me = this;
-        if (fs.existsSync(me.auditFilePath)) {
-            return JSON.parse(fs.readFileSync(me.auditFilePath).toString());
+        if (fs.existsSync(`./audits/auditfile-${collection}.json`)) {
+            return JSON.parse(fs.readFileSync(`./audits/auditfile-${collection}.json`).toString());
         }
         else {
-            fs.writeFileSync(me.auditFilePath, me._getNewAuditFileStructure());
-            return JSON.parse(fs.readFileSync(me.auditFilePath).toString());
+            fs.writeFileSync(`./audits/auditfile-${collection}.json`, me._getNewAuditFileStructure());
+            return JSON.parse(fs.readFileSync(`./audits/auditfile-${collection}.json`).toString());
         }
     }
     /**
@@ -99,15 +105,15 @@ export default class SaleTracker {
      * Improvement: Use a database to store the processed file information - helpes with easier deployment since in the current scheme the lock file is part of the commit.
      * @param signature
      */
-    _updateLockFile(signature) {
+    _updateLockFile(signature, collection) {
         return __awaiter(this, void 0, void 0, function* () {
             const me = this;
-            let file = me._readOrCreateAuditFile();
+            let file = me._readOrCreateAuditFile(collection);
             file.processedSignatures.push(signature);
             if (file.processedSignatures.length > 300) {
                 file.processedSignatures = _.takeRight(file.processedSignatures, 10);
             }
-            yield fs.writeFileSync(me.auditFilePath, JSON.stringify(file));
+            yield fs.writeFileSync(`./audits/auditfile-${collection}.json`, JSON.stringify(file));
         });
     }
     /**
@@ -167,78 +173,72 @@ export default class SaleTracker {
      * @param signature
      * @returns saleInfo object
      */
-    _parseTransactionForSaleInfo(signature) {
+     _parseTransactionForSaleInfo(signature, conversionRate) {
         return __awaiter(this, void 0, void 0, function* () {
-            const me = this;
-            let transactionInfo = yield me.connection.getTransaction(signature);
-
-
-            let accountKeys = transactionInfo === null || transactionInfo === void 0 ? void 0 : transactionInfo.transaction.message.accountKeys;
-            let accountMap = [];
-            if (accountKeys) {
-                let idx = 0;
-                for (let accountKey of accountKeys) {
-                    accountMap[idx++] = accountKey.toBase58();
-                }
+          const me = this;
+          let transactionInfo = yield me.connection.getTransaction(signature);
+          let accountKeys =
+            transactionInfo === null || transactionInfo === void 0
+              ? void 0
+              : transactionInfo.transaction.message.accountKeys;
+          let accountMap = [];
+          if (accountKeys) {
+            let idx = 0;
+            for (let accountKey of accountKeys) {
+              accountMap[idx++] = accountKey.toBase58();
             }
-            let allAddresses = _.values(accountMap);
-            let buyer = accountMap[0];
-            let { balanceDifferences, seller, mintInfo, saleAmount } = me._parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses);
-            if (balanceDifferences && balanceDifferences[me.config.primaryRoyaltiesAccount] > 0 /* && !_.isEmpty(marketPlace)*/) {
-                let mintMetaData = yield me._getMintMetadata(mintInfo);
-                if (!me._verifyNFT(mintMetaData)) {
-                    console.log("Not an NFT transaction that we're interested in", mintMetaData);
-                    return;
+          }
+          let allAddresses = _.values(accountMap);
+          let buyer = accountMap[0];
+          let { balanceDifferences, seller, mintInfo, saleAmount } = me._parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses);
+                if(mintInfo == null){
+                    return `So11111111111111111111111111111111111111112`;
                 }
-                let arWeaveUri = _.get(mintMetaData, `data.uri`);
-                let arWeaveInfo = yield axios.get(arWeaveUri);
-
-
-                
-                let user = {
-                   collection: _.get(mintMetaData, `data.name`),
-        
-                    time:
-                        transactionInfo === null || transactionInfo === void 0
-                            ? void 0
-                            : transactionInfo.blockTime,
-        
-                    /*marketPlace: me._mapMarketPlace(allAddresses),*/
-                    saleAmount: saleAmount,
-                    Signature: signature
-                };
-                if (user.saleAmount != 0) {
-                    // convert JSON object to string
-                    const data = JSON.stringify(user);
-                   // const Signature = JSON.stringify(SIG);
-        
-                    // write JSON string to a file
-                    fs.appendFile("sigs.json", `${data}   ,`, (err) => {
-                        if (err) {
-                            throw err;
-                        }
-                        console.log("JSON data is saved.");
-                    });
-                }
-
-
-
-                return {
-                    time: transactionInfo === null || transactionInfo === void 0 ? void 0 : transactionInfo.blockTime,
-                    txSignature: signature,
-                    /* marketPlace: marketPlace ? marketPlace : 'Unknown', */
-                    buyer,
-                    seller,
-                    saleAmount,
-                    nftInfo: {
-                        id: _.get(mintMetaData, `data.name`),
-                        name: _.get(mintMetaData, `data.name`),
-                        image: arWeaveInfo.data.image
+             //   if (mintInfo) {
+                if (balanceDifferences && balanceDifferences[me.config.primaryRoyaltiesAccount] > 0 /* && !_.isEmpty(marketPlace)*/) {
+                    let mintMetaData = yield me._getMintMetadata(mintInfo);
+                    if(typeof(mintMetaData) != "undefined") { 
+                    if (!me._verifyNFT(mintMetaData)) {
+                        console.log("Not an NFT transaction that we're interested in", mintMetaData);
+                        return;
                     }
+                }
+                else {
+                    return
                 };
-            }
-        });
-    }
+                
+                            //   let arWeaveUri = _.get(mintMetaData, `data.uri`);
+                //    let arWeaveInfo = yield axios.get(arWeaveUri);
+    
+    
+    
+                    let user = {
+                        collection: _.get(mintMetaData, `data.name`),
+                        time:
+                            transactionInfo === null || transactionInfo === void 0
+                                ? void 0
+                                : transactionInfo.blockTime,
+                        buyerWallet: buyer,
+                        sellerWallet: seller,        
+                        saleAmount: saleAmount,
+                        USDSale: (saleAmount*conversionRate).toFixed(2),
+                        Signature: signature
+                    };
+                    //console.log(user.saleAmount);
+    
+                   if (user.saleAmount != 0 && user.sellerWallet !== me.config.updateAuthority) {
+                        const data = JSON.stringify(user);
+                        // fs.appendFile("livesigs.json", `${data}, \n`, (err) => {
+                        //     if (err) {
+                        //         throw err;
+                        //     }
+                        // });
+                        return data;
+                    }
+                }
+              //  }
+            });
+        }
     /**
      * Some rudimentary logic to compute account balance changes. Assumes that the
      * account which is credited the largest amount is the account of the seller.
@@ -251,7 +251,7 @@ export default class SaleTracker {
     _parseTransactionMeta(transactionInfo, accountMap, buyer, allAddresses) {
         
         const me = this;
-        
+        if (transactionInfo) {
         let txMetadata = transactionInfo.meta, mintInfo = _.get(txMetadata, `postTokenBalances.0.mint`), balanceDifferences = {}, seller = '';
         let accountPreBalances = {};
         let accountPostBalances = {};
@@ -282,5 +282,9 @@ export default class SaleTracker {
             //marketPlace: me._mapMarketPlace(allAddresses),
             saleAmount: me._getSaleAmount(accountPostBalances, accountPreBalances, buyer)
         };
+    } else {
+        console.log("transaction info null!");
+    return 0;
     }
+    } 
 }
