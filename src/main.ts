@@ -7,6 +7,9 @@ import _ from 'lodash';
 import axios from 'axios'
 import fs from 'fs';
 
+
+
+
 export default class SaleTracker {
   config: any
   connection: Connection;

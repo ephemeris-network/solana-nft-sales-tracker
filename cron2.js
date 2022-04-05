@@ -286,10 +286,8 @@ function datadump(configs) {
                           console.log('Not of Interest')   
                         } else if (id == '49' && !meta.collection.includes(' #')) {
                           console.log('Not of Interest')   
-                        } else if (id == '50' && !meta.collection.includes('Honey Genesis Bee #')) {
-                          console.log('Not of Interest')   
                         } else {
-                        pool.query("insert into public.solana values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
+                        pool.query("insert into public.solana2 values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
                             if (!err) {
                                 console.log(res.rows);
                             } else {
@@ -297,14 +295,6 @@ function datadump(configs) {
                             }
                                 console.log("row added");   
                         })
-                        pool.query("insert into public.Wallet_tracker values("+id+",'" + meta.collection + "'," + meta.time +",'"+meta.buyerWallet+"','"+meta.mintId+"') ON CONFLICT(mintid) DO UPDATE SET id=EXCLUDED.id,name=EXCLUDED.name,time=Excluded.time,buyer=EXCLUDED.buyer;", (err, res) => {
-                          if (!err) {
-                              console.log(res.rows);
-                          } else {
-                              console.log(err.message);
-                          }
-                              console.log("row added");   
-                      })
                       }
                     }
                 }  
@@ -377,7 +367,7 @@ function datadump2(configs) {
                     else {
                         console.log(i)
                         let id = samplefile.id;
-                        pool.query("insert into public.solana values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
+                        pool.query("insert into public.solana2 values('"+collection+"',"+id+",'" + meta.collection + "'," + meta.time +","+ meta.saleAmount +","+ meta.USDSale +",'" + meta.Signature + "','"+meta.buyerWallet+"','"+meta.sellerWallet+"') ", (err, res) => {
                             if (!err) {
                                 console.log(res.rows);
                             } else {
@@ -385,14 +375,6 @@ function datadump2(configs) {
                             }
                                 console.log("row added");   
                         })
-                        pool.query("insert into public.Wallet_tracker values("+id+",'" + meta.collection + "'," + meta.time +",'"+meta.buyerWallet+"','"+meta.mintId+"') ON CONFLICT(mintid) DO UPDATE SET id=EXCLUDED.id,name=EXCLUDED.name,time=Excluded.time,buyer=EXCLUDED.buyer;", (err, res) => {
-                          if (!err) {
-                              console.log(res.rows);
-                          } else {
-                              console.log(err.message);
-                          }
-                              console.log("row added");   
-                      })
                     }
                 }
             } 
